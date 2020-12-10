@@ -1,0 +1,54 @@
+/*
+ * spantree: Parallel Spanning Tree
+ * Copyright (C) 1997-2007  David A. Bader, Guojing Cong
+ */
+
+
+INPUT: a connected sparse graph
+
+The input file format is as follows:
+<number-of-vertices>
+<adjacent vertex v1 to vertex 0> <adjacent vertex v2 to vertex 0> ...
+<adjacent vertex u1 to vertex 1> <ajacent vertex u2 to vertex 1> ..
+.
+.
+.
+
+As an example, a completely connected graph on five vertices would be:
+5
+1 2 3 4
+0 2 3 4
+0 1 3 4
+0 1 2 4
+0 1 2 3
+
+DEPENDENCY: none  
+
+OUTPUT: either a spanning tree with the adjacency list representation
+or labeling of the edge list to show which edge is in the spanning
+tree 
+
+COMPILATION: standard using SWARM library.
+
+Command Line Invocation:
+% span -t #threads --  input-file
+
+Example:
+To find a spanning tree for input graph 1M_4
+% span -t #threads -- 1M_4
+
+The code implemented two spanning tree algorithms. One (SV) is based
+on Shiloach-Vishkin's connected components algorithm, the other (GT) 
+is based on a graph traversal approach designed specially for SMP.
+
+The basic steps for SV:
+1. graft a vertex to its neighbor with smaller vertex number
+2. short cut the sub-tree formed in step 1 into super-vertex
+3. iterate till only 1 super-vertex left
+
+The basic steps for GT:
+
+1. Create a small sub spanning tree
+2. each processor pick up a leaf from the sub spanning tree and start
+   breadth-first traversal 
+

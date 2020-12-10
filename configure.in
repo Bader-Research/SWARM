@@ -1,0 +1,279 @@
+dnl Process this file with autoconf to produce a configure script.
+
+dnl AC_INIT (package, version, [bug-report-email], [tarname])
+AC_INIT([swarm],[1.1])
+
+dnl check for this file's existence to make sure that the directory
+dnl specified by --srcdir is the right one
+AC_CONFIG_SRCDIR([README])
+
+dnl Specify a header configuration file
+AM_CONFIG_HEADER(swarm_config.h)
+
+dnl Compute the canonical host-system type variable, host, and its
+dnl three individual parts host_cpu, host_vendor, and host_os.
+AC_CANONICAL_SYSTEM
+
+dnl Initialize Automake
+AM_INIT_AUTOMAKE
+
+dnl Argument --with-sprng=dir specifies that the SPRNG library and
+dnl header files are installed in directory dir; assume that
+dnl libsprng.so is in dir/lib and the header file is in dir/include
+AC_ARG_WITH([sprng],
+	    [  --with-sprng=PATH        specifies path to SPRNG installation],
+	    [if test "$withval" != "no"; 
+             then
+               if test -d "$withval";
+	       then
+	  	  SPRNG_CFLAGS="-I$withval/include"
+		  SPRNG_LDFLAGS="-L$withval/lib"
+	       else
+		  AC_MSG_ERROR(["$withval" is not a directory.])
+               fi
+             fi],
+	    [])
+
+dnl Argument --with-sprng-lib=dir specifies the directory where
+dnl libsprng.so is installed. 
+AC_ARG_WITH([sprng-lib],
+	    [  --with-sprng-lib=PATH        specifies path to SPRNG library],
+	    [if test -d "$withval";
+	     then
+		SPRNG_LDFLAGS="-L$withval"
+	     else
+		AC_MSG_ERROR(["$withval" is not a directory.])
+             fi],
+	    [])
+
+dnl Argument --with-sprng-include=dir specifies the directory where
+dnl srpng.h is installed. 
+AC_ARG_WITH([sprng-include],
+	    [  --with-sprng-include=PATH    specifies path to SPRNG header files],
+	    [if test -d "$withval";
+	     then
+		SPRNG_CFLAGS="-I$withval"
+	     else
+		AC_MSG_ERROR(["$withval" is not a directory.])
+             fi],
+	    [])
+
+dnl substitute these variables for their values in the makefiles 
+AC_SUBST(SPRNG_CFLAGS)
+AC_SUBST(SPRNG_LDFLAGS)
+
+dnl Argument -enable-64bit specifies that the library should be
+dnl compiled for 64-bit environments, if possible. 
+AC_ARG_ENABLE(64bit,
+  [  --enable-64bit          compile for 64-bit environments],
+  [case "${enableval}" in
+    "" | y | ye | yes) swarm_cv_enable_64bit=yes ;;
+    n | no) swarm_cv_enable_64bit=no ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-64bit) ;;
+  esac],
+  [swarm_cv_enable_64bit=no])
+
+if test "$swarm_cv_enable_64bit" == "yes" ; 
+then 
+   if test "$swarm_cv_check_sunpro_cc" == "yes" ; then
+      CFLAGS=$(echo $CFLAGS | sed -e 's/-fast\|-xarch=.*//g') 
+      CFLAGS="$CFLAGS -fast -xarch=v9" 
+   else
+      if test "$GCC" == "yes"; then
+         CFLAGS=$(echo $CFLAGS | sed -e 's/-m32\|-m64//g') 
+         CFLAGS="$CFLAGS -m64" 
+      fi
+   fi
+fi
+
+
+dnl Search for a C compiler starting with the specified list
+AC_PROG_CC([icc cc gcc])
+dnl Check for programs
+AC_PROG_LIBTOOL
+AC_PROG_INSTALL
+
+AC_DEFINE([_RAND],[],[RNG library to use])
+
+dnl Check for libraries
+AC_CHECK_LIB(m, log2, AC_DEFINE([HAVE_LOG2],[],[log2 function is present]))
+dnl This is needed on some versions of Solaris
+AC_CHECK_LIB(rt, sched_get_priority_max)
+
+dnl If the sprng library is found, then the 
+dnl sprng headers must also be accessible. 
+if test "$with_sprng" != "no";
+then 
+  swarm_save_CFLAGS="$CFLAGS"
+  swarm_save_LDFLAGS="$LDFLAGS"
+  CFLAGS="$CFLAGS $SPRNG_CFLAGS"
+  LDFLAGS="$LDFLAGS $SPRNG_LDFLAGS"
+  AC_CHECK_LIB(sprng, init_rng, ac_cv_lib_sprng=yes, ac_cv_lib_sprng=no) 
+  if test "$ac_cv_lib_sprng" == "yes";
+  then
+     AC_CHECK_HEADERS(sprng.h sprng/sprng.h, 
+                      [SPRNG_LIBS="-lsprng"
+                       AC_DEFINE([HAVE_LIBSPRNG],[],[SPRNG library is present])
+                       AC_DEFINE([_RAND],SPRNG)
+                       break], 
+                      [SPRNG_LIBS=""
+                       AC_DEFINE([_RAND],NONE)])
+  fi
+  CFLAGS="$swarm_save_CFLAGS"
+  LDFLAGS="$swarm_save_LDFLAGS"
+fi
+
+AC_SUBST(SPRNG_LIBS)
+
+dnl Under MinGW, we have two variants of the pthread library:
+dnl pthreadGC1/2 (for gcc) and pthreadVC1/2 (for VC).
+AC_SEARCH_LIBS(pthread_create, [pthread pthreadGC2 pthreadGC1], ,
+               AC_MSG_ERROR(pthread library not found))
+
+dnl Search for the getopt function
+AC_SEARCH_LIBS(getopt, [getopt], ,
+               AC_MSG_ERROR(getopt function not found))
+
+
+dnl Under Linux, AIX and FreeBSD, the scheduling priority 
+dnl is not allowed to be changed except if the user is root user.
+dnl Check made here to ensure that pthread_create is called with
+dnl appropriate attributes based on system
+
+AC_MSG_CHECKING(if setting SCHED_FIFO is supported)
+AC_CACHE_VAL(ac_cv_pthread_system_supported,
+	[AC_TRY_RUN([
+		#include <pthread.h>
+  	void *foo(void *parm) 
+		{
+    	return NULL;
+  	}
+  	main() 
+		{
+    	pthread_attr_t pattr;
+    	pthread_t id;
+      struct sched_param psched;
+    	
+			if (pthread_attr_init(&pattr)) exit(-1);
+      if (pthread_attr_setschedpolicy(&pattr, SCHED_FIFO)) exit(-1);
+      psched.sched_priority = sched_get_priority_max(SCHED_FIFO);
+      if (pthread_attr_setschedparam(&pattr, &psched)) exit(-1);
+     	if (pthread_attr_setinheritsched(&pattr, PTHREAD_EXPLICIT_SCHED)) exit(-1);
+    	if (pthread_create(&id, &pattr, foo, NULL)) exit(-1);
+    	exit(0);
+		}],
+  	ac_cv_pthread_system_supported=yes,
+  	ac_cv_pthread_system_supported=no,
+  	ac_cv_pthread_system_supported=no)
+  ])
+AC_MSG_RESULT($ac_cv_pthread_system_supported)
+if test "$ac_cv_pthread_system_supported" = "yes"; then
+	AC_DEFINE(HAVE_PTHREAD_SCHED_SUPPORTED, 1, [Defined if SCHED_FIFO is supported.])
+fi
+
+
+dnl Check for header files
+AC_STDC_HEADERS
+AC_CHECK_HEADERS(sys/resource.h)
+AC_CHECK_HEADERS(getopt.h)
+
+dnl Check for typedefs, structures, C compiler characteristics
+AC_C_CONST
+AC_C_INLINE
+AC_TYPE_SIZE_T
+AC_HEADER_TIME
+AC_STRUCT_TM
+
+dnl This is an example how to specify different CFLAGS depending on
+dnl the C compiler detected: 
+
+dnl If gcc is present, use -Wall
+if test "x$GCC" = "xyes"; then
+  if test -z "`echo "$CFLAGS" | grep "\-Wall" 2> /dev/null`" ; then
+    CFLAGS="$CFLAGS -Wall"
+  fi
+fi
+
+dnl Checks whether the compiler is intel compiler. 
+dnl If so, add -wd279 to CFLAGS. 
+dnl This is done to silence the warning 
+dnl 'controlling expression constant'
+
+AC_MSG_CHECKING(for Intel compiler)
+AC_TRY_COMPILE([], [#ifndef __INTEL_COMPILER
+                    #include "error: this is not a Intel C compiler."
+                    #endif
+                   ],
+           [AC_MSG_RESULT(yes)
+                    ICC=yes],
+           [AC_MSG_RESULT(no)
+                    ICC=no])
+
+if test "$ICC" == "yes";
+then
+    CFLAGS="$CFLAGS -wd279"
+fi
+
+dnl This is an example how to check for compiler characterstics that
+dnl are not a part of the standard Autoconf tests:
+
+dnl If Sun cc is present, define appropriate compiler flags  
+AC_MSG_CHECKING(for Sun C compiler)
+AC_TRY_COMPILE([], [#ifndef __SUNPRO_C
+                    #include "error: this is not a Sun C compiler."
+                    #endif 
+                   ],
+		   [AC_MSG_RESULT(yes)
+                    swarm_cv_check_sunpro_cc=yes],
+		   [AC_MSG_RESULT(no)
+                    swarm_cv_check_sunpro_cc=no])
+
+if test "$swarm_cv_check_sunpro_cc" == "yes";
+then
+	CFLAGS="$CFLAGS -mt -fast -xarch=v8plusa"
+fi
+
+
+dnl Check for library functions
+AC_CHECK_FUNCS(sysconf gettimeofday select)
+
+dnl debug flag 
+AC_ARG_ENABLE(debug,
+  [  --enable-debug          turn on debugging],
+  [case "${enableval}" in
+    "" | y | ye | yes) debug=true; 
+		       CFLAGS=$(echo $CFLAGS -g | sed -e 's/-O\|-O2\|-O3//g') ;;
+    n | no) debug=false ;;
+    *) AC_MSG_ERROR(bad value ${enableval} for --enable-debug) ;;
+  esac],
+  [debug=false])
+AM_CONDITIONAL(SWARM_DEBUG, test x$debug = xtrue)
+
+dnl this is used to pass -no-undefined on MinGW platforms, to prevent
+dnl linking swarm.dll with shared libraries 
+MINGW_LDFLAGS=
+
+dnl Check for different platforms and set definitions accordingly
+case $target_os in
+  solaris* | sunos*) CFLAGS="$CFLAGS -DSOLARIS" ; break;;
+  mingw*) MINGW_LDFLAGS="-no-undefined" ; break;
+esac
+
+AC_SUBST(MINGW_LDFLAGS)
+
+dnl Create makefiles and other configuration files
+AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile 
+                 examples/Makefile
+		 examples/isort64/Makefile
+		 examples/ExactMP/Makefile
+		 examples/Listrank/Makefile
+		 examples/Rake/Makefile
+		 examples/SpanningTree/Makefile
+		 examples/SymmetryBreaking/Makefile
+		 examples/Selection/Makefile
+		 examples/PrefixSums/Makefile
+		 ])
+
+dnl Generate `config.status' and launch it
+AC_OUTPUT
+

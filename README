@@ -1,0 +1,32 @@
+Multicore SWARM (Software and Algorithms for Running on Multicore
+Processors) is an open source library for developing efficient and
+portable implementations that make use of multi-core
+processors. SWARM's development began in 1994 by David A. Bader.
+
+(C) 1994-2007, David A. Bader, Georgia Institute of Technology
+               http://www.cc.gatech.edu/~bader
+
+Since the inception of the desktop computer, performance of software
+has improved at an exponential rate, primarily driven by the steady
+technological improvements of microprocessors. Due to fundamental
+physical limitations and power constraints, we are now witnessing a
+radical change in commodity microprocessor architecture, to multi-core
+designs. Continued performance now requires the exploitation of
+concurrency at the algorithmic level. Automatic methods for detecting
+concurrency from sequential codes, for example with parallelizing
+compilers, have been successful in only a few regular cases. For
+several decades, a niche community mainly in scientific and technical
+computing has developed parallel computing methodologies; however,
+this community typically relies on specially-trained heroic
+programmers due to the complex programming methodologies that are
+often difficult to comprehend and use, even for the most sophisticated
+scientific programmer. We have designed a parallel programming
+methodology (library-based) for commodity multi-core processors by
+providing a productive, easy-to-use package. The main developer (David
+A. Bader) is a computer science professor at Georgia Tech, a pioneer
+in the area of parallel algorithm engineering techniques, and has
+extensive experience designing the world’s fastest parallel algorithms
+for shared memory, symmetric multiprocessor, and multithreaded
+architectures. In this project, he disseminates his portable and
+efficient library of basic primitives that fully exploit multi-core
+processors.

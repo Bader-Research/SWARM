@@ -1,0 +1,26 @@
+Linux, FreeBSD, Solaris, AIX:
+
+1. Download the multicore-swarm tar ball.
+2. Type tar -xvzf swarm-x.y.tar.gz. Where 'x.y' is the version number. This will create a subdirectory called swarm-x.y . All of swarm's source code will be untarred here.
+3. Type in the following commands to get SWARM running.
+        cd swarm-x.y
+        ./configure           This will create the makefile
+        make                   This will create the library
+        make test            This will check the library with test routines
+4. An executable swarm_test is created in the swarm-x.y/tests directory. Type ./swarm_test to run the test code. -t option can be used to specify the number of threads to be used.
+
+MS Windows:
+
+1.On installation, following 2 folders will be created in swarm-x.y (x.y is the version number) directory:
+       pthreads:
+           pthreads/include - requisite pthreads header files
+           pthreads/lib - dynamic library for pthreads
+       swarm:
+           swarm/include - function declarations for SWARM API
+           swarm/lib - dynamic library for swarm
+           swarm/tests - test codes
+2. The System PATH will automatically be set to point to the dll files swarm.dll and pthreadVC2.dll
+3. In the tests folder, double click the VC++ project 'SWARM_Test'
+4. Click on Build -> Build Solution to compile. You will be asked to save Swarm_Test. Select Save.
+5. Click on Debug -> Start without debugging to Execute.
+6. Command line arguments can be specified in Project -> Swarm_Test Properties -> Configuration Properties -> Debugging -> Command arguments. (eg -t <number of threads>).
